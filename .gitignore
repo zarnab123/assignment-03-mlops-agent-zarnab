@@ -8,3 +8,5 @@ mlruns/
 airflow/
 logs/
 models/
+mlflow.db
+mlartifacts/
