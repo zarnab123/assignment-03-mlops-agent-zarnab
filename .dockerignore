@@ -9,7 +9,7 @@ mlartifacts
 mlflow.db
 screenshots
 tests
-data
-dags
 agent
-training
+dags
+models
+data

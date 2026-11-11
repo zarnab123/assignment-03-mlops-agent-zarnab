@@ -10,7 +10,9 @@ COPY requirements-api.txt .
 RUN pip install --no-cache-dir -r requirements-api.txt
 
 COPY api ./api
-COPY models/breast_cancer_classifier.joblib ./models/breast_cancer_classifier.joblib
+COPY training/export_model.py ./training/export_model.py
+
+RUN python training/export_model.py
 
 EXPOSE 8000
 
