@@ -74,3 +74,107 @@ def test_confirmed_scale_is_forwarded(mock_tool):
     )
     mock_tool.assert_called_once_with(3, confirmed=True)
     assert result["result"]["action"] == "scaled"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@patch("agent.orchestrator.get_latest_pipeline_status")
+def test_airflow_unavailable_service_returns_real_error(mock_tool):
+    mock_tool.return_value = {
+        "ok": False,
+        "error": "service_unavailable",
+        "message": "Airflow service is unavailable",
+    }
+
+    result = handle_request("What is the latest Airflow pipeline status?")
+
+    assert result["intent"] == "get_airflow_pipeline_status"
+    assert result["result"]["ok"] is False
+    assert result["result"]["error"] == "service_unavailable"
+
+
+@patch("agent.orchestrator.list_kubernetes_resources")
+def test_kubernetes_timeout_is_reported_without_inventing_health(mock_tool):
+    mock_tool.return_value = {
+        "ok": False,
+        "error": "timeout",
+        "message": "Kubernetes request timed out",
+    }
+
+    result = handle_request("Show Kubernetes deployment status")
+
+    assert result["intent"] == "get_kubernetes_status"
+    assert result["result"]["ok"] is False
+    assert result["result"]["error"] == "timeout"
+    assert "available_replicas" not in result["result"]
+
+
+@patch("agent.orchestrator.list_recent_runs")
+def test_mlflow_unavailable_service_does_not_invent_best_model(mock_tool):
+    mock_tool.return_value = {
+        "ok": False,
+        "error": "service_unavailable",
+        "message": "MLflow tracking server is unavailable",
+    }
+
+    result = handle_request("Show MLflow experiments")
+
+    assert result["intent"] == "list_mlflow_runs"
+    assert result["result"]["ok"] is False
+    assert result["result"]["error"] == "service_unavailable"
+    assert "best_model" not in result["result"]
+
+
+@patch("agent.orchestrator.list_datasets")
+def test_dvc_command_failure_is_returned_to_user(mock_tool):
+    mock_tool.return_value = {
+        "ok": False,
+        "error": "command_failed",
+        "message": "DVC command failed",
+    }
+
+    result = handle_request("Show DVC datasets")
+
+    assert result["intent"] == "list_datasets"
+    assert result["result"]["ok"] is False
+    assert result["result"]["error"] == "command_failed"
+
+
+def test_invalid_request_returns_safe_help_response():
+    result = handle_request("Write a poem about the weather")
+
+    assert result["intent"] == "help"
+    assert "DVC datasets" in result["result"]["message"]
