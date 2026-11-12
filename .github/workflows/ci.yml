@@ -2,10 +2,12 @@ name: MLOps Agent CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  test-and-build:
+  test-lint-and-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,10 +23,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-api.txt
-          pip install mlflow pytest
+          pip install mlflow pytest ruff
 
-      - name: Run agent tests
-        run: python -m pytest -q
+      - name: Lint Python code
+        run: |
+          ruff check agent api dags training tests --select=E9,F63,F7,F82
+
+      - name: Run automated tests
+        run: |
+          python -m pytest -q
 
       - name: Build Docker image
-        run: docker build -t mlops-agent-api:ci .
+        run: |
+          docker build -t mlops-agent-api:ci .
