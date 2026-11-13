@@ -477,6 +477,9 @@ Future improvements:
 ## 15. Conclusion
 
 This project demonstrates a complete operational MLOps workflow. It integrates real DVC, MLflow, Apache Airflow, Docker, FastAPI, Kubernetes, automated testing, and GitHub Actions. The agent provides one controlled interface for inspecting infrastructure and ML workflow evidence while using explicit confirmation for state-changing operations.
+**Abhi submit mat karo**—sirf report ka small formatting fix hai.
+
+GitHub editor mein `## Appendix A:` search karo. Us heading se **file ke end tak** delete karke yeh complete clean content paste karo:
 
 ## Appendix A: Controlled failure investigations
 
@@ -484,13 +487,7 @@ This project demonstrates a complete operational MLOps workflow. It integrates r
 
 **How it was injected:** The automated test `test_airflow_unavailable_service_returns_real_error` replaces the Airflow status tool with a mocked unavailable-service response.
 
-**Observed behavior:** The agent returns:
-
-```text
-ok: false
-error: service_unavailable
-message: Airflow service is unavailable
-```
+**Observed behavior:** The agent returns `ok: false`, `error: service_unavailable`, and `message: Airflow service is unavailable`.
 
 **Diagnosis:** The agent does not claim that a DAG run succeeded when Airflow cannot be reached. This prevents invented operational results.
 
@@ -502,17 +499,15 @@ message: Airflow service is unavailable
 
 **How it was injected:** The automated test `test_kubernetes_timeout_is_reported_without_inventing_health` replaces the Kubernetes status tool with a mocked timeout response.
 
-**Observed behavior:** The agent returns:
-
-```text
-ok: false
-error: timeout
-message: Kubernetes request timed out
-```
+**Observed behavior:** The agent returns `ok: false`, `error: timeout`, and `message: Kubernetes request timed out`.
 
 **Diagnosis:** The Kubernetes request did not complete within the allowed time. The agent treats deployment health as unknown instead of reporting false healthy information.
 
 **Root cause:** The local Kubernetes cluster may be unavailable, overloaded, starting up, or unreachable from the client.
+
+**Resolution:** Check Docker Desktop Kubernetes, verify connectivity with `kubectl cluster-info`, inspect Pods/events, and retry the request.
+
+These controlled test injections verify safe failure handling without interrupting the working local Airflow and Kubernetes deployment.
 
 ## Appendix B: Final reliability and CI verification
 
@@ -528,11 +523,6 @@ Additional automated coverage verifies:
 - No invented operational results when a tool is unavailable
 - Rejection of Kubernetes scaling without explicit confirmation
 
-Final test result:
+**Final test result:** `14 passed`
 
-```text
-14 passed
-
-**Resolution:** Check Docker Desktop Kubernetes, verify connectivity with `kubectl cluster-info`, inspect Pods/events, and retry the request.
-
-These controlled test injections verify safe failure handling without interrupting the working local Airflow and Kubernetes deployment.
+The GitHub Actions workflow was updated and verified successfully. It now installs dependencies, runs Ruff linting, runs `python -m pytest -q`, and builds the Docker image.
