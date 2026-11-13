@@ -477,3 +477,43 @@ Future improvements:
 ## 15. Conclusion
 
 This project demonstrates a complete operational MLOps workflow. It integrates real DVC, MLflow, Apache Airflow, Docker, FastAPI, Kubernetes, automated testing, and GitHub Actions. The agent provides one controlled interface for inspecting infrastructure and ML workflow evidence while using explicit confirmation for state-changing operations.
+```markdown
+## Appendix A: Controlled failure investigations
+
+### Failure investigation 1: Airflow service unavailable
+
+**How it was injected:** The automated test `test_airflow_unavailable_service_returns_real_error` replaces the Airflow status tool with a mocked unavailable-service response.
+
+**Observed behavior:** The agent returns:
+
+```text
+ok: false
+error: service_unavailable
+message: Airflow service is unavailable
+```
+
+**Diagnosis:** The agent does not claim that a DAG run succeeded when Airflow cannot be reached. This prevents invented operational results.
+
+**Root cause:** The Airflow API or local Airflow service is unavailable, stopped, or unreachable.
+
+**Resolution:** Start or verify Airflow, confirm the configured endpoint and credentials, then retry the read-only status request.
+
+### Failure investigation 2: Kubernetes request timeout
+
+**How it was injected:** The automated test `test_kubernetes_timeout_is_reported_without_inventing_health` replaces the Kubernetes status tool with a mocked timeout response.
+
+**Observed behavior:** The agent returns:
+
+```text
+ok: false
+error: timeout
+message: Kubernetes request timed out
+```
+
+**Diagnosis:** The Kubernetes request did not complete within the allowed time. The agent treats deployment health as unknown instead of reporting false healthy information.
+
+**Root cause:** The local Kubernetes cluster may be unavailable, overloaded, starting up, or unreachable from the client.
+
+**Resolution:** Check Docker Desktop Kubernetes, verify connectivity with `kubectl cluster-info`, inspect Pods/events, and retry the request.
+
+These controlled test injections verify safe failure handling without interrupting the working local Airflow and Kubernetes deployment.
