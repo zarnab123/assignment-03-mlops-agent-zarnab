@@ -1,4 +1,8 @@
+import json
+import logging
 import re
+import time
+import uuid
 from typing import Any
 
 from agent.tools.airflow_tools import (
@@ -23,6 +27,15 @@ from agent.tools.mlflow_tools import (
     list_recent_runs,
 )
 
+LOGGER = logging.getLogger("mlops_agent")
+
+if not LOGGER.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+    LOGGER.propagate = False
+
 
 def _cross_tool_operational_review() -> dict[str, Any]:
     """Collect evidence from all four MLOps systems without changing state."""
@@ -38,29 +51,27 @@ def _cross_tool_operational_review() -> dict[str, Any]:
         "kubernetes_deployment": kubernetes,
         "assessment": (
             "This request is read-only and does not start retraining. "
-            "The evidence above should be used to decide whether retraining "
-            "is needed. Retraining is recommended only if there is a failed "
-            "quality gate, explicit data-freshness policy, observed model "
-            "degradation, or another approved operational reason."
+            "Retraining is recommended only if there is a failed quality gate, "
+            "an explicit data-freshness policy, observed model degradation, "
+            "or another approved operational reason."
         ),
     }
 
 
-def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
-    """
-    Route a natural-language MLOps request to real tools.
-
-    Mutating actions require confirmed=True.
-    """
+def _handle_request_impl(
+    message: str,
+    confirmed: bool = False,
+) -> dict[str, Any]:
+    """Route a natural-language MLOps request to an approved tool."""
     text = message.lower().strip()
 
-    # Mandatory multi-tool integration scenario.
     is_cross_tool_request = (
         "best" in text
-        and any(word in text for word in ["dataset", "dvc", "provenance", "version"])
-        and any(word in text for word in ["kubernetes", "deployment", "pod", "service"])
-        and any(word in text for word in ["retrain", "retraining", "training necessary"])
+        and ("dataset" in text or "version" in text)
+        and ("kubernetes" in text or "deployment" in text)
+        and ("retrain" in text or "retraining" in text)
     )
+
     if is_cross_tool_request:
         return {
             "agent": "MLOps Orchestrator",
@@ -79,7 +90,14 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
 
     if any(
         word in text
-        for word in ["kubernetes", "k8s", "pod", "deployment", "service", "endpoint"]
+        for word in [
+            "kubernetes",
+            "k8s",
+            "pod",
+            "deployment",
+            "service",
+            "endpoint",
+        ]
     ):
         if "endpoint" in text:
             result = get_service_endpoints()
@@ -90,6 +108,7 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
         else:
             result = list_kubernetes_resources()
             intent = "get_kubernetes_status"
+
         return {
             "agent": "MLOps Orchestrator",
             "intent": intent,
@@ -106,6 +125,7 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
         else:
             result = get_latest_pipeline_status()
             intent = "get_airflow_pipeline_status"
+
         return {
             "agent": "MLOps Orchestrator",
             "intent": intent,
@@ -125,6 +145,7 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
         else:
             result = list_recent_runs()
             intent = "list_mlflow_runs"
+
         return {
             "agent": "MLOps Orchestrator",
             "intent": intent,
@@ -144,6 +165,7 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
         else:
             result = list_datasets()
             intent = "list_datasets"
+
         return {
             "agent": "MLOps Orchestrator",
             "intent": intent,
@@ -157,6 +179,53 @@ def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
             "message": (
                 "I can inspect DVC datasets, MLflow runs, Airflow pipelines, "
                 "or Kubernetes workloads. Mutating actions need confirmation."
-            )
+            ),
         },
     }
+
+
+def handle_request(message: str, confirmed: bool = False) -> dict[str, Any]:
+    """Run an approved request and emit a safe structured audit log."""
+    request_id = str(uuid.uuid4())
+    started = time.perf_counter()
+    response: dict[str, Any] = {}
+    tool_name = "unknown"
+    status = "error"
+
+    try:
+        response = _handle_request_impl(message, confirmed=confirmed)
+        tool_name = response.get("intent", "unknown")
+        payload = response.get("result", {})
+
+        if isinstance(payload, dict) and payload.get("ok") is False:
+            status = "error"
+        else:
+            status = "success"
+
+        return response
+
+    except Exception:
+        tool_name = "tool_error"
+        status = "error"
+        return {
+            "agent": "MLOps Orchestrator",
+            "intent": "tool_error",
+            "result": {
+                "ok": False,
+                "error": "tool_unavailable",
+                "message": "The requested operational tool is unavailable.",
+            },
+        }
+
+    finally:
+        LOGGER.info(
+            json.dumps(
+                {
+                    "event": "tool_request",
+                    "request_id": request_id,
+                    "tool": tool_name,
+                    "status": status,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                }
+            )
+        )
