@@ -514,6 +514,25 @@ message: Kubernetes request timed out
 
 **Root cause:** The local Kubernetes cluster may be unavailable, overloaded, starting up, or unreachable from the client.
 
+## Appendix B: Final reliability and CI verification
+
+After the final reliability improvements, the project test suite contains **fourteen passing pytest tests**.
+
+Additional automated coverage verifies:
+
+- Airflow unavailable-service responses
+- Kubernetes request timeouts
+- MLflow unavailable-service responses
+- DVC command failures
+- Invalid user requests
+- No invented operational results when a tool is unavailable
+- Rejection of Kubernetes scaling without explicit confirmation
+
+Final test result:
+
+```text
+14 passed
+
 **Resolution:** Check Docker Desktop Kubernetes, verify connectivity with `kubectl cluster-info`, inspect Pods/events, and retry the request.
 
 These controlled test injections verify safe failure handling without interrupting the working local Airflow and Kubernetes deployment.
