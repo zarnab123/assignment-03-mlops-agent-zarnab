@@ -477,7 +477,7 @@ Future improvements:
 ## 15. Conclusion
 
 This project demonstrates a complete operational MLOps workflow. It integrates real DVC, MLflow, Apache Airflow, Docker, FastAPI, Kubernetes, automated testing, and GitHub Actions. The agent provides one controlled interface for inspecting infrastructure and ML workflow evidence while using explicit confirmation for state-changing operations.
-```markdown
+
 ## Appendix A: Controlled failure investigations
 
 ### Failure investigation 1: Airflow service unavailable
